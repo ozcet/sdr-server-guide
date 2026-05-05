@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orange Pi Zero 3 — Complete SDR IP Server Build Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1628;
+    --bg3: #141d35;
+    --card: #111827;
+    --border: #1e2d4a;
+    --accent: #00d4ff;
+    --accent2: #0099cc;
+    --accent3: #ff6b35;
+    --green: #00ff88;
+    --yellow: #ffd60a;
+    --red: #ff3b3b;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --code-bg: #0d1520;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,212,255,0.015) 2px,
+      rgba(0,212,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 60%, #0a1f3a 0%, #0a0e1a 70%);
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridPulse 8s ease-in-out infinite;
+  }
+
+  @keyframes gridPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: glowPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  }
+
+  .hero-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 0.4rem 1.2rem;
+    border-radius: 2px;
+    margin-bottom: 2rem;
+    position: relative;
+    z-index: 1;
+    animation: fadeInDown 0.8s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.8rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: #fff;
+    position: relative;
+    z-index: 1;
+    animation: fadeInDown 0.8s ease 0.1s both;
+  }
+
+  .hero h1 span {
+    color: var(--accent);
+    display: block;
+  }
+
+  .hero-sub {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: var(--text2);
+    max-width: 700px;
+    margin: 1.5rem auto 0;
+    position: relative;
+    z-index: 1;
+    animation: fadeInDown 0.8s ease 0.2s both;
+  }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 2rem;
+    position: relative;
+    z-index: 1;
+    animation: fadeInDown 0.8s ease 0.3s both;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+  .tag.blue { color: var(--accent); border-color: rgba(0,212,255,0.3); background: rgba(0,212,255,0.06); }
+  .tag.orange { color: var(--accent3); border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.06); }
+  .tag.green { color: var(--green); border-color: rgba(0,255,136,0.3); background: rgba(0,255,136,0.06); }
+  .tag.yellow { color: var(--yellow); border-color: rgba(255,214,10,0.3); background: rgba(255,214,10,0.06); }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text3);
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  .scroll-hint::after {
+    content: '▼';
+    color: var(--accent);
+    animation: fadeInDown 0.8s ease 0.5s both;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(6px); }
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,14,26,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    overflow-x: auto;
+  }
+
+  nav a {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text3);
+    text-decoration: none;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+    border-radius: 2px;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--accent); background: rgba(0,212,255,0.08); }
+
+  nav .nav-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+    margin-right: 1rem;
+    border-right: 1px solid var(--border);
+    padding-right: 1rem;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    margin-bottom: 5rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.1rem, 3vw, 1.5rem);
+    font-weight: 700;
+    color: #fff;
+  }
+
+  h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 2rem 0 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+  }
+
+  p { color: var(--text2); margin-bottom: 1rem; }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    border-left: 3px solid;
+    padding: 1rem 1.25rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+  }
+  .alert.warn {
+    border-color: var(--yellow);
+    background: rgba(255,214,10,0.05);
+    color: #e8c84a;
+  }
+  .alert.tip {
+    border-color: var(--green);
+    background: rgba(0,255,136,0.05);
+    color: #4de89a;
+  }
+  .alert.danger {
+    border-color: var(--red);
+    background: rgba(255,59,59,0.05);
+    color: #ff7070;
+  }
+  .alert strong { display: block; margin-bottom: 0.3rem; font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 0.1em; }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+    position: relative;
+  }
+  pre::before {
+    content: '$ ';
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+  code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: #7dd3fc;
+    line-height: 1.8;
+    white-space: pre;
+  }
+  .inline-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+  }
+
+  /* ── TABLES ── */
+  .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  thead tr {
+    background: rgba(0,212,255,0.08);
+    border-bottom: 2px solid rgba(0,212,255,0.2);
+  }
+  thead th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: rgba(0,212,255,0.03); }
+  tbody td {
+    padding: 0.65rem 1rem;
+    color: var(--text2);
+    vertical-align: top;
+  }
+  tbody td:first-child {
+    color: var(--text);
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  /* ── CARDS ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { border-color: rgba(0,212,255,0.3); transform: translateY(-2px); }
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .card-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .card-sub {
+    font-size: 0.8rem;
+    color: var(--text3);
+    margin-top: 0.2rem;
+  }
+
+  /* ── DECODER GRID ── */
+  .decoder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+
+  .decoder-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 2px;
+    border: 1px solid;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .decoder-chip:hover { transform: scale(1.03); }
+  .dc-hf { color: #60a5fa; border-color: rgba(96,165,250,0.25); background: rgba(96,165,250,0.06); }
+  .dc-vhf { color: var(--green); border-color: rgba(0,255,136,0.25); background: rgba(0,255,136,0.06); }
+  .dc-uhf { color: var(--accent3); border-color: rgba(255,107,53,0.25); background: rgba(255,107,53,0.06); }
+  .dc-sat { color: var(--yellow); border-color: rgba(255,214,10,0.25); background: rgba(255,214,10,0.06); }
+  .dc-avi { color: #c084fc; border-color: rgba(192,132,252,0.25); background: rgba(192,132,252,0.06); }
+  .dc-marine { color: #34d399; border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.06); }
+
+  /* ── CHECKLIST ── */
+  .checklist { list-style: none; margin: 1rem 0; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.9rem;
+    color: var(--text2);
+  }
+  .checklist li::before {
+    content: '□';
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+  .checklist li.critical { color: var(--text); }
+  .checklist li.critical::before { content: '◆'; color: var(--accent3); }
+
+  /* ── TRUTH TABLE ── */
+  .gpio-table tbody td:nth-child(1),
+  .gpio-table tbody td:nth-child(2) {
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ── ANDROID SECTION ── */
+  .app-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    align-items: start;
+    transition: border-color 0.2s;
+  }
+  .app-card:hover { border-color: rgba(0,212,255,0.25); }
+  .app-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .app-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    color: #fff;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .app-desc { font-size: 0.85rem; color: var(--text2); }
+  .app-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+  .app-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    background: rgba(0,212,255,0.08);
+    color: var(--accent);
+    border: 1px solid rgba(0,212,255,0.15);
+  }
+
+  /* ── CLAUDE SECTION ── */
+  .claude-card {
+    background: linear-gradient(135deg, rgba(255,107,53,0.06) 0%, rgba(0,212,255,0.06) 100%);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-radius: 4px;
+    padding: 2rem;
+    margin-top: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .claude-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+  }
+  .claude-quote {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text);
+    line-height: 1.8;
+    border-left: 3px solid var(--accent3);
+    padding-left: 1.25rem;
+    margin: 1.5rem 0;
+  }
+
+  /* ── STATUS BADGE ── */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+  }
+  .status.ok { color: var(--green); background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); }
+  .status.fail { color: var(--red); background: rgba(255,59,59,0.08); border: 1px solid rgba(255,59,59,0.2); }
+  .status::before { content: '●'; font-size: 0.5rem; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--text3);
+    font-size: 0.85rem;
+    font-family: 'Space Mono', monospace;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .card-grid { grid-template-columns: 1fr 1fr; }
+    .decoder-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+    .app-card { grid-template-columns: 1fr; }
+    nav { padding: 0.5rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-badge">// SDR IP SERVER BUILD GUIDE</div>
+  <h1>Orange Pi Zero 3<span>Complete SDR IP Server</span></h1>
+  <p class="hero-sub">Everything on one low-cost SBC: 3 receivers, 4 switchable antennas, 30+ decoders — HF to satellite. Controlled entirely from Android.</p>
+  <div class="hero-tags">
+    <span class="tag blue">Armbian 13 Trixie</span>
+    <span class="tag blue">Legacy Kernel 6.6.75</span>
+    <span class="tag orange">Airspy HF+</span>
+    <span class="tag orange">RTL-SDR Blog V4</span>
+    <span class="tag green">ADS-B + AIS + APRS</span>
+    <span class="tag green">FT8 + ACARS + HFDL</span>
+    <span class="tag yellow">HMC241 RF Switch</span>
+    <span class="tag yellow">Android Control</span>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">OPiZ3 SDR</span>
+  <a href="#hardware">Hardware</a>
+  <a href="#kernel">Kernel</a>
+  <a href="#software">Software</a>
+  <a href="#decoders">Decoders</a>
+  <a href="#tweaks">Tweaks</a>
+  <a href="#rfswitch">RF Switch</a>
+  <a href="#android">Android</a>
+  <a href="#installation">Install</a>
+  <a href="#checklist">Checklist</a>
+  <a href="#claude">Built With AI</a>
+</nav>
+
+<main>
+
+  <!-- 1. INTRO -->
+  <section id="intro">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2>Introduction</h2>
+    </div>
+    <p>After nearly <strong>one year of kernel crashes, WiFi driver panics, and instability</strong>, this configuration has proven rock-solid for 24/7 SDR server operation on the Orange Pi Zero 3 (Allwinner H618 SoC).</p>
+    <p>The design goal: a compact, low-power, fully headless SDR server accessible entirely over the network — including from an Android smartphone, with <strong>no desktop PC required</strong> for day-to-day operation.</p>
+    <div class="alert tip">
+      <strong>KEY DISCOVERY</strong>
+      The 'current' kernel crashes within hours on this board. The 'legacy' kernel 6.6.75 is the only stable option for SDR server use.
+    </div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">OS</div>
+        <div class="card-value">Armbian 13</div>
+        <div class="card-sub">Trixie — Debian 13</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Kernel</div>
+        <div class="card-value">6.6.75-legacy</div>
+        <div class="card-sub">sunxi64 — NOT current</div>
+      </div>
+      <div class="card">
+        <div class="card-label">SDR Receivers</div>
+        <div class="card-value">3 simultaneous</div>
+        <div class="card-sub">RTL-SDR V4 + HF+ + ADS-B</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Antennas</div>
+        <div class="card-value">4 switchable</div>
+        <div class="card-sub">HMC241 GaAs SP4T</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Decoders</div>
+        <div class="card-value">30+</div>
+        <div class="card-sub">FT8 to ADS-B to Satellite</div>
+      </div>
+      <div class="card">
+        <div class="card-label">PC Required?</div>
+        <div class="card-value" style="color:var(--green)">Zero</div>
+        <div class="card-sub">Full Android control</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. HARDWARE -->
+  <section id="hardware">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2>Hardware</h2>
+    </div>
+
+    <h3>Main Board & Power</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>SBC</td><td>Orange Pi Zero 3 — Allwinner H618, quad-core Cortex-A53 @ 1.5 GHz</td></tr>
+          <tr><td>RAM</td><td>1.5 GB LPDDR4</td></tr>
+          <tr><td>Network</td><td>Gigabit Ethernet — WiFi completely disabled</td></tr>
+          <tr><td>Power</td><td>Official Raspberry Pi 5V/3A USB-C adapter</td></tr>
+          <tr><td>USB</td><td>SDR dongles plug directly into the Orange Pi Zero 3 USB hat connector — no external hub</td></tr>
+          <tr><td>Enclosure</td><td>Custom box — SBC, RF switch, filters, all cabling inside</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>SDR Receivers</h3>
+    <div class="alert tip">
+      <strong>RTL-SDR BLOG V4 HF NOTE</strong>
+      RTL-SDR Blog V4 has a built-in HF upconverter — it receives HF frequencies natively. No direct sampling mode needed. Simply tune below 28.8 MHz.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Device</th><th>Frequency</th><th>Role</th><th>HF Capability</th></tr></thead>
+        <tbody>
+          <tr><td>RTL-SDR Blog V4</td><td>500 kHz – 1766 MHz</td><td>General purpose RX</td><td>Built-in HF upconverter</td></tr>
+          <tr><td>RTL-SDR (ADS-B)</td><td>1090 MHz</td><td>ADS-B aircraft tracking</td><td>—</td></tr>
+          <tr><td>Airspy Discovery HF+</td><td>0.5 kHz – 31 MHz + VHF</td><td>HF + VHF high dynamic range</td><td>Native HF, best-in-class</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>RF Switch — HMC241 (Analog Devices GaAs SP4T)</h3>
+    <p>The Airspy Discovery HF+ is connected through an HMC241 GaAs MMIC SP4T switch, allowing SpyServer to select between 4 antennas via 2 GPIO pins.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Spec</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Part</td><td>HMC241ALP3E — Analog Devices / Hittite</td></tr>
+          <tr><td>Type</td><td>GaAs MMIC SP4T Non-Reflective Switch</td></tr>
+          <tr><td>Frequency</td><td>DC to 4 GHz</td></tr>
+          <tr><td>Insertion Loss</td><td>0.7 dB @ 2 GHz</td></tr>
+          <tr><td>Isolation</td><td>43 dB @ 2 GHz</td></tr>
+          <tr><td>Control</td><td>2-pin TTL/CMOS — integrated 2:4 decoder on chip</td></tr>
+          <tr><td>Supply</td><td>3V–5V — powered from Orange Pi 3.3V GPIO pin</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>GPIO Truth Table — Antenna Selection</h3>
+    <div class="table-wrap">
+      <table class="gpio-table">
+        <thead><tr><th>CTRL_A</th><th>CTRL_B</th><th>Port</th><th>Antenna</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>0</td><td>RF1</td><td>Quadrifilar helix 145 MHz — self-built, LEO satellites, circularly polarized</td></tr>
+          <tr><td>1</td><td>0</td><td>RF2</td><td>V-dipole 137 MHz — NOAA/Meteor weather satellites</td></tr>
+          <tr><td>0</td><td>1</td><td>RF3</td><td>YouLoop — passive magnetic loop for HF</td></tr>
+          <tr><td>1</td><td>1</td><td>RF4</td><td>16.5m random wire — broadband HF</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Antennas</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Antenna</th><th>Band</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Quadrifilar Helix (QFH)</td><td>145 MHz</td><td>Self-built — circularly polarized, excellent for LEO satellite passes</td></tr>
+          <tr><td>V-dipole</td><td>137 MHz</td><td>NOAA/Meteor-M weather satellite image reception</td></tr>
+          <tr><td>YouLoop</td><td>HF</td><td>Noise-cancelling passive magnetic loop — excellent in urban environments</td></tr>
+          <tr><td>16.5m random wire</td><td>HF broadband</td><td>Wide HF coverage via 9:1 unun + toroid choke</td></tr>
+          <tr><td>ADS-B antenna</td><td>1090 MHz</td><td>Direct to RTL-SDR ADS-B dongle</td></tr>
+          <tr><td>Discone</td><td>VHF/UHF broadband</td><td>Direct to RTL-SDR Blog V4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>RF Filtering & Chokes</h3>
+    <ul style="list-style:none; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:0.75rem; margin-top:0.5rem">
+      <li class="card"><div class="card-label">LPF</div><div class="card-value" style="font-size:0.9rem">30 MHz Low-Pass Filter</div><div class="card-sub">Protects HF from VHF/UHF overload</div></li>
+      <li class="card"><div class="card-label">FILTER</div><div class="card-value" style="font-size:0.9rem">FM Notch Filter</div><div class="card-sub">Eliminates 88-108 MHz FM overload</div></li>
+      <li class="card"><div class="card-label">CHOKE</div><div class="card-value" style="font-size:0.9rem">Toroid Chokes</div><div class="card-sub">Common-mode suppression on coax</div></li>
+      <li class="card"><div class="card-label">CHOKE</div><div class="card-value" style="font-size:0.9rem">Spiral Cable Chokes</div><div class="card-sub">Feed point common-mode suppression</div></li>
+    </ul>
+  </section>
+
+  <!-- 3. KERNEL -->
+  <section id="kernel">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2>The Critical Choice — Legacy Kernel</h2>
+    </div>
+    <div class="alert danger">
+      <strong>WARNING — READ THIS FIRST</strong>
+      The 'current' kernel crashes within hours on Orange Pi Zero 3 under SDR load. One year of testing confirmed this. Always install the legacy kernel.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Branch</th><th>Package</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--red)">current</td>
+            <td>linux-image-current-sunxi64</td>
+            <td><span class="status fail">CRASH within hours</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--green)">legacy ✓</td>
+            <td>linux-image-legacy-sunxi64</td>
+            <td><span class="status ok">STABLE — days of uptime</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Install Legacy Kernel</h3>
+    <pre><code>sudo apt install linux-image-legacy-sunxi64 linux-dtb-legacy-sunxi64
+sudo reboot
+uname -r   # Expected: 6.6.75-legacy-sunxi64</code></pre>
+  </section>
+
+  <!-- 4. SOFTWARE -->
+  <section id="software">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2>SDR Software Stack</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Software</th><th>Protocol / Port</th><th>SDR Device</th><th>Client</th></tr></thead>
+        <tbody>
+          <tr><td>OpenWebRX+</td><td>Web — :8073</td><td>Airspy HF+ / RTL-SDR V4</td><td>Any browser</td></tr>
+          <tr><td>SpyServer</td><td>TCP — :5432</td><td>Airspy HF+ via RF switch</td><td>SDR++Brown, SDRAngel</td></tr>
+          <tr><td>rtl_tcp (V4)</td><td>TCP — :1234</td><td>RTL-SDR Blog V4</td><td>SDR++Brown, SDRAngel, GQRX</td></tr>
+          <tr><td>rtl_tcp (ADS-B)</td><td>TCP — :1235</td><td>RTL-SDR ADS-B dongle</td><td>dump1090, Virtual Radar</td></tr>
+          <tr><td>Radiosonde auto_rx</td><td>Web — custom port</td><td>RTL-SDR V4</td><td>Any browser</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Package Repositories</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Software</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>OpenWebRX+</td><td>repo.openwebrx.de/debian/ bookworm main</td></tr>
+          <tr><td>OpenWebRX Plus (luarvique)</td><td>luarvique.github.io/ppa/trixie ./</td></tr>
+          <tr><td>RTL-SDR Blog V4 drivers</td><td>RTL-SDR Blog official repo — rtl-sdr.com (NOT Debian repo)</td></tr>
+          <tr><td>SpyServer</td><td>airspy.com/download/ — arm64 binary, manual install</td></tr>
+          <tr><td>Radiosonde auto_rx</td><td>github.com/projecthorus/radiosonde_auto_rx</td></tr>
+          <tr><td>SoapySDR / Airspy HF+</td><td>apt install soapysdr-module-airspyhf (then apply library fix — Section 6)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5. DECODERS -->
+  <section id="decoders">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2>Supported Decoders — 30+</h2>
+    </div>
+    <p>All decoders run simultaneously on the same hardware. Grouped by band and protocol type:</p>
+
+    <h3>HF Decoders</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-hf">FT8</div>
+      <div class="decoder-chip dc-hf">FT4</div>
+      <div class="decoder-chip dc-hf">WSPR</div>
+      <div class="decoder-chip dc-hf">JT65</div>
+      <div class="decoder-chip dc-hf">JT9</div>
+      <div class="decoder-chip dc-hf">CW</div>
+      <div class="decoder-chip dc-hf">CW Skimmer</div>
+      <div class="decoder-chip dc-hf">RTTY</div>
+      <div class="decoder-chip dc-hf">SITOR-B</div>
+      <div class="decoder-chip dc-hf">NAVTEX</div>
+      <div class="decoder-chip dc-hf">HFDL</div>
+      <div class="decoder-chip dc-hf">DRM</div>
+      <div class="decoder-chip dc-hf">FreeDV</div>
+      <div class="decoder-chip dc-hf">FAX/WEFAX</div>
+      <div class="decoder-chip dc-hf">SSTV</div>
+      <div class="decoder-chip dc-hf">SAM</div>
+      <div class="decoder-chip dc-hf">SELCALL</div>
+    </div>
+
+    <h3>VHF / Marine / Aviation</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-marine">AIS</div>
+      <div class="decoder-chip dc-vhf">APRS</div>
+      <div class="decoder-chip dc-avi">ADS-B</div>
+      <div class="decoder-chip dc-avi">ACARS</div>
+      <div class="decoder-chip dc-avi">VDL Mode 2</div>
+      <div class="decoder-chip dc-vhf">RDS</div>
+      <div class="decoder-chip dc-vhf">DAB</div>
+    </div>
+
+    <h3>Digital Voice</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-uhf">DMR</div>
+      <div class="decoder-chip dc-uhf">D-Star</div>
+      <div class="decoder-chip dc-uhf">YSF</div>
+      <div class="decoder-chip dc-uhf">NXDN</div>
+      <div class="decoder-chip dc-uhf">P25</div>
+      <div class="decoder-chip dc-uhf">POCSAG</div>
+      <div class="decoder-chip dc-uhf">FLEX</div>
+    </div>
+
+    <h3>IoT & Sensors</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-uhf">ISM / rtl_433</div>
+      <div class="decoder-chip dc-uhf">Weather Stations</div>
+      <div class="decoder-chip dc-uhf">TPMS</div>
+      <div class="decoder-chip dc-uhf">Smart Meters</div>
+    </div>
+
+    <h3>Satellite & Radiosonde</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-sat">NOAA APT</div>
+      <div class="decoder-chip dc-sat">Meteor-M LRPT</div>
+      <div class="decoder-chip dc-sat">RS41 Radiosonde</div>
+      <div class="decoder-chip dc-sat">RS92</div>
+      <div class="decoder-chip dc-sat">DFM09</div>
+      <div class="decoder-chip dc-sat">M10 / M20</div>
+    </div>
+
+    <h3>SDR++Brown Exclusive</h3>
+    <div class="decoder-grid">
+      <div class="decoder-chip dc-vhf">Baseband NR</div>
+      <div class="decoder-chip dc-vhf">Audio NR (logMMSE)</div>
+      <div class="decoder-chip dc-vhf">Audio NR (OMLSA)</div>
+      <div class="decoder-chip dc-vhf">FT8 built-in</div>
+      <div class="decoder-chip dc-vhf">KiwiSDR client</div>
+    </div>
+  </section>
+
+  <!-- 6. TWEAKS -->
+  <section id="tweaks">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2>Critical System Tweaks</h2>
+    </div>
+
+    <h3>1 — RTL-SDR DVB Module Blacklist</h3>
+    <p>Linux loads DVB-T drivers for RTL-SDR dongles by default. Blacklist them:</p>
+    <pre><code>blacklist dvb_usb_rtl28xxu
+blacklist rtl2832
+blacklist rtl2830
+install dvb_usb_rtl28xxu /bin/true
+install rtl2832 /bin/true
+sudo update-initramfs -u && sudo reboot</code></pre>
+
+    <h3>2 — Disable WiFi & Bluetooth (aw859a)</h3>
+    <p>The H618 WiFi driver causes kernel instability. Mask and blacklist completely:</p>
+    <pre><code>sudo systemctl mask aw859a-wifi.service
+sudo systemctl mask aw859a-bluetooth.service
+# Add to /etc/modprobe.d/wifi-blacklist.conf:
+blacklist sprdwl_ng
+blacklist uwe5622_bsp_sdio
+blacklist panfrost</code></pre>
+
+    <h3>3 — CPU Governor: schedutil</h3>
+    <p>Default 'performance' governor keeps CPU at max. schedutil scales dynamically. Temperature dropped ~8-10°C.</p>
+    <pre><code>echo schedutil | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+sudo sed -i 's/^GOVERNOR=.*/GOVERNOR=schedutil/' /etc/default/cpufrequtils
+sudo sed -i 's/^ENABLE=false/ENABLE=true/' /etc/default/cpufrequtils</code></pre>
+
+    <h3>4 — USB Autosuspend (Critical for SDR Dongles)</h3>
+    <p>Without this, USB dongles enter sleep and become unresponsive. Add to <span class="inline-code">/boot/armbianEnv.txt</span> extraargs:</p>
+    <pre><code>usbcore.autosuspend=-1</code></pre>
+
+    <h3>5 — Disable Unnecessary Services</h3>
+    <pre><code>sudo systemctl disable --now exim4
+sudo truncate -s 0 /var/log/exim4/paniclog
+sudo systemctl mask systemd-networkd-wait-online
+sudo systemctl mask systemd-networkd-wait-online@.service
+sudo systemctl mask alsa-utils.service
+sudo systemctl mask fake-hwclock.service</code></pre>
+
+    <h3>6 — SoapySDR / SpyServer Library Conflict</h3>
+    <div class="alert warn">
+      <strong>CRITICAL FIX</strong>
+      When SoapySDR updates, it overwrites libairspyhfSupport.so with an incompatible version. SpyServer silently fails. OpenWebRX keeps working. This is the most common post-update breakage.
+    </div>
+    <pre><code># Copy working version from /usr/local to system path
+sudo cp /usr/local/lib/SoapySDR/modules0.8/libairspyhfSupport.so \
+        /usr/lib/SoapySDR/modules0.8/libairspyhfSupport.so
+
+# Lock BOTH files — apt can never overwrite them
+sudo chattr +i /usr/lib/SoapySDR/modules0.8/libairspyhfSupport.so
+sudo chattr +i /usr/local/lib/SoapySDR/modules0.8/libairspyhfSupport.so
+
+# Verify — look for 'i' in the output
+lsattr /usr/lib/SoapySDR/modules0.8/libairspyhfSupport.so
+# Expected: ----i---------e------- .../libairspyhfSupport.so</code></pre>
+    <p>To update the library manually in the future:</p>
+    <pre><code>sudo chattr -i /usr/lib/SoapySDR/modules0.8/libairspyhfSupport.so
+# ... make changes, then re-lock:
+sudo chattr +i /usr/lib/SoapySDR/modules0.8/libairspyhfSupport.so</code></pre>
+  </section>
+
+  <!-- 7. RF SWITCH -->
+  <section id="rfswitch">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2>RF Switch GPIO Control</h2>
+    </div>
+    <p>The HMC241 is controlled by two GPIO pins. A Python script selects the active antenna — callable from SpyServer or the SSH Button Android app.</p>
+    <div class="alert tip">
+      <strong>WIRING NOTE</strong>
+      HMC241 is TTL/CMOS compatible. Orange Pi Zero 3 GPIO is 3.3V — connect directly, no level shifter needed. Power the switch from the 3.3V GPIO pin.
+    </div>
+    <h3>Python GPIO Control</h3>
+    <pre><code>import OPi.GPIO as GPIO
+
+GPIO.setmode(GPIO.SUNXI)
+CTRL_A = 'PA6'   # Adjust to your wiring
+CTRL_B = 'PA7'   # Adjust to your wiring
+GPIO.setup(CTRL_A, GPIO.OUT)
+GPIO.setup(CTRL_B, GPIO.OUT)
+
+def select_antenna(port):  # port = 1, 2, 3 or 4
+    GPIO.output(CTRL_A, port & 1)
+    GPIO.output(CTRL_B, (port >> 1) & 1)</code></pre>
+    <h3>SpyServer Config</h3>
+    <pre><code>bind_host = 0.0.0.0
+bind_port = 5432
+list_in_directory = 1</code></pre>
+  </section>
+
+  <!-- 8. ANDROID -->
+  <section id="android">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2>Full Android Control — No PC Required</h2>
+    </div>
+    <p>Complete operation from an Android smartphone. Every function of the SDR server is accessible without touching a desktop computer.</p>
+
+    <div class="app-card">
+      <div class="app-icon" style="background:rgba(96,165,250,0.1)">📻</div>
+      <div>
+        <div class="app-name">SDR++Brown</div>
+        <div class="app-desc">The recommended client for HF. Fork of SDR++ by Sanny Sanoff with Android-optimized UI and unique signal processing. The only SDR software applying noise reduction to the entire wideband IQ stream — visible in the waterfall. Remarkable for weak HF signals.</div>
+        <div class="app-tags">
+          <span class="app-tag">SpyServer :5432</span>
+          <span class="app-tag">rtl_tcp :1234</span>
+          <span class="app-tag">Baseband NR</span>
+          <span class="app-tag">FT8 built-in</span>
+          <span class="app-tag">DSD decoder</span>
+          <span class="app-tag">KiwiSDR</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background:rgba(0,255,136,0.1)">📡</div>
+      <div>
+        <div class="app-name">SDRAngel</div>
+        <div class="app-desc">Full-featured SDR application with excellent Android support. Supports ADS-B, AIS, APT satellite, RS41 Radiosonde, APRS, digital voice and more.</div>
+        <div class="app-tags">
+          <span class="app-tag">SpyServer</span>
+          <span class="app-tag">rtl_tcp</span>
+          <span class="app-tag">ADS-B map</span>
+          <span class="app-tag">APT satellite</span>
+          <span class="app-tag">Radiosonde</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background:rgba(255,214,10,0.1)">🌐</div>
+      <div>
+        <div class="app-name">Samsung Internet Browser</div>
+        <div class="app-desc">Use Samsung Browser instead of Chrome for OpenWebRX+ and Radiosonde tracker. Smoother waterfall rendering, better touch interaction on the frequency controls.</div>
+        <div class="app-tags">
+          <span class="app-tag">OpenWebRX+ :8073</span>
+          <span class="app-tag">Radiosonde web</span>
+          <span class="app-tag">Better waterfall</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background:rgba(255,107,53,0.1)">⚡</div>
+      <div>
+        <div class="app-name">SSH Button</div>
+        <div class="app-desc">One-tap SSH command execution. Used for RF switch antenna selection and service management. No need to open a full terminal for routine operations.</div>
+        <div class="app-tags">
+          <span class="app-tag">Antenna 1: rfswitch.py 1</span>
+          <span class="app-tag">Antenna 2: rfswitch.py 2</span>
+          <span class="app-tag">Start/stop services</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. INSTALLATION GUIDE -->
+  <section id="installation">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2>Installation Guide — Step by Step</h2>
+    </div>
+
+    <h3>1 — Flash Armbian Trixie Image</h3>
+    <p>Download the Armbian 13 (Trixie) image for Orange Pi Zero 3 from armbian.com. Choose the <strong>Debian Trixie</strong> variant — not Ubuntu.</p>
+    <pre><code># Write to SD card (replace /dev/sdX with your card)
+dd if=Armbian_26.x_Orangepizero3_trixie_*.img of=/dev/sdX bs=4M status=progress
+sync</code></pre>
+    <div class="alert tip">
+      <strong>USE BALENAETCHER ON WINDOWS/MAC</strong>
+      balenaetcher.io — drag and drop, no command line needed.
+    </div>
+
+    <h3>2 — Install Legacy Kernel + DTB (CRITICAL)</h3>
+    <div class="alert danger">
+      <strong>ALWAYS INSTALL KERNEL AND DTB TOGETHER</strong>
+      The DTB (Device Tree Blob) must match the kernel exactly. If you update the kernel without updating the DTB — or vice versa — the system will NOT boot. Always run these two packages together as one command.
+    </div>
+    <pre><code># Install legacy kernel AND DTB together — never one without the other
+sudo apt update
+sudo apt install linux-image-legacy-sunxi64 linux-dtb-legacy-sunxi64
+
+# Remove current kernel to prevent accidental boot into wrong kernel
+sudo apt remove linux-image-current-sunxi64
+
+# Reboot into legacy kernel
+sudo reboot
+
+# Verify after reboot
+uname -r
+# Expected: 6.6.75-legacy-sunxi64</code></pre>
+    <div class="alert warn">
+      <strong>FUTURE UPDATES — ALWAYS UPDATE BOTH</strong>
+      When running apt upgrade, always explicitly include both packages:
+      sudo apt upgrade linux-image-legacy-sunxi64 linux-dtb-legacy-sunxi64
+      Never just run apt upgrade alone without checking these are included — a kernel update without DTB update = unbootable system.
+    </div>
+    <p style="font-size:0.85rem">⚠ After first boot, immediately disable WiFi and BT drivers. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweak 2: Disable WiFi &amp; Bluetooth</a></p>
+    <p style="font-size:0.85rem">⚠ Set USB autosuspend and CPU governor. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweaks 3 &amp; 4</a></p>
+    <p style="font-size:0.85rem">⚠ Disable unnecessary services. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweak 5</a></p>
+
+    <h3>3 — Verify Armbian Sources (Trixie)</h3>
+    <p>Armbian Trixie repo is pre-configured in the image. Verify it is correct:</p>
+    <pre><code>cat /etc/apt/sources.list.d/armbian.sources
+# Should show: Suites: trixie</code></pre>
+
+    <h3>4 — RTL-SDR Blog V4 Drivers</h3>
+    <p>Do NOT use the Debian repo rtl-sdr package — install from RTL-SDR Blog source for V4 support:</p>
+    <p style="font-size:0.85rem">⚠ After installing, apply the DVB blacklist. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweak 1: RTL-SDR DVB Module Blacklist</a></p>
+    <pre><code>sudo apt install libusb-1.0-0-dev git cmake
+git clone https://github.com/rtlsdrblog/rtl-sdr-blog
+cd rtl-sdr-blog && mkdir build && cd build
+cmake ../ -DINSTALL_UDEV_RULES=ON
+make && sudo make install
+sudo cp ../rtl-sdr.rules /etc/udev/rules.d/
+sudo ldconfig
+sudo udevadm control --reload-rules && sudo udevadm trigger
+# Add user to plugdev group
+sudo usermod -aG plugdev $USER</code></pre>
+    <div class="alert tip">
+      <strong>VERIFY</strong>
+      Plug in RTL-SDR V4 and run: rtl_test — should detect device without DVB errors.
+    </div>
+
+    <h3>5 — SoapySDR + Airspy HF+ Support</h3>
+    <p style="font-size:0.85rem">⚠ After installing, immediately apply the library lock. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweak 6: SoapySDR / SpyServer Library Conflict</a></p>
+    <pre><code>sudo apt install soapysdr-tools libsoapysdr-dev soapy-connector
+sudo apt install soapysdr-module-airspyhf
+# Verify Airspy HF+ is detected:
+SoapySDRUtil --find
+# Should show: airspyhf</code></pre>
+    <div class="alert warn">
+      <strong>IMPORTANT — Apply Library Fix Immediately</strong>
+      After installing, apply the chattr +i fix before installing SpyServer. Otherwise SpyServer will detect the wrong library version and fail silently. <a href="#tweaks" style="color:var(--yellow)">→ Section 06, Tweak 6</a>
+    </div>
+
+    <h3>6 — OpenWebRX+ Installation</h3>
+    <pre><code># Add OpenWebRX repo
+wget -O - https://repo.openwebrx.de/debian/key.gpg | sudo apt-key add -
+echo "deb https://repo.openwebrx.de/debian/ bookworm main" | \
+  sudo tee /etc/apt/sources.list.d/openwebrx.list
+
+# Add OpenWebRX Plus (luarvique fork — more decoders)
+wget -O - https://luarvique.github.io/ppa/openwebrx-plus.gpg | \
+  sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/openwebrx-plus.gpg
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/openwebrx-plus.gpg] \
+  https://luarvique.github.io/ppa/trixie ./" | \
+  sudo tee /etc/apt/sources.list.d/openwebrx-plus.list
+
+sudo apt update && sudo apt install openwebrx</code></pre>
+
+    <h3>7 — OpenWebRX+ External Decoder Plugins</h3>
+    <p>These are the external decoder tools OpenWebRX+ uses in the background. Install all for full decoder support:</p>
+    <pre><code>sudo apt install \
+  dump1090-fa-minimal \
+  dump978-fa-minimal \
+  dumphfdl \
+  dumpvdl2 \
+  acarsdec \
+  libacars2 \
+  multimon-ng \
+  redsea \
+  csdr-skimmer \
+  sonde-decoders \
+  faad \
+  direwolf</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Package</th><th>Decodes</th></tr></thead>
+        <tbody>
+          <tr><td>dump1090-fa-minimal</td><td>ADS-B 1090 MHz — aircraft position</td></tr>
+          <tr><td>dump978-fa-minimal</td><td>UAT 978 MHz — US aircraft traffic</td></tr>
+          <tr><td>dumphfdl</td><td>HFDL — aircraft position over HF</td></tr>
+          <tr><td>dumpvdl2</td><td>VDL Mode 2 — aircraft VHF datalink</td></tr>
+          <tr><td>acarsdec + libacars2</td><td>ACARS — aircraft communications</td></tr>
+          <tr><td>multimon-ng</td><td>POCSAG, FLEX, DTMF, EAS pagers</td></tr>
+          <tr><td>redsea</td><td>RDS — FM broadcast station data</td></tr>
+          <tr><td>csdr-skimmer</td><td>CW skimmer — full-band Morse decode</td></tr>
+          <tr><td>sonde-decoders</td><td>RS41, DFM, M10 radiosondes</td></tr>
+          <tr><td>faad</td><td>DAB / AAC digital radio</td></tr>
+          <tr><td>direwolf</td><td>AIS, APRS packet decoder</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>8 — SpyServer Installation</h3>
+    <p style="font-size:0.85rem">⚠ Make sure the SoapySDR library fix is applied BEFORE starting SpyServer. <a href="#tweaks" style="color:var(--accent)">→ See Section 06, Tweak 6</a></p>
+    <pre><code># Create directory and download binary
+mkdir ~/spyserver_arm64 && cd ~/spyserver_arm64
+wget https://airspy.com/downloads/spyserver-arm64.tgz
+tar xvf spyserver-arm64.tgz
+chmod +x spyserver
+
+# Create config file
+cat > spyserver.config << 'EOF'
+bind_host = 0.0.0.0
+bind_port = 5432
+list_in_directory = 1
+owner_name =
+owner_email =
+EOF
+
+# Create systemd service
+sudo tee /etc/systemd/system/spyserver.service << 'EOF'
+[Unit]
+Description=SpyServer for Airspy HF+
+After=NetworkManager-wait-online.service
+
+[Service]
+User=sdruser
+WorkingDirectory=/home/sdruser/spyserver_arm64
+ExecStart=/home/sdruser/spyserver_arm64/spyserver \
+    /home/sdruser/spyserver_arm64/spyserver.config
+StandardOutput=append:/home/sdruser/spyserver_arm64/spyserver.log
+StandardError=append:/home/sdruser/spyserver_arm64/spyserver.err
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable spyserver</code></pre>
+
+    <h3>9 — rtl_tcp Services</h3>
+    <p>Two separate rtl_tcp instances — one for RTL-SDR V4 (general), one for ADS-B. They conflict with radiosonde since all use the RTL-SDR hardware.</p>
+    <pre><code># RTL-SDR V4 service (device index 1)
+sudo tee /etc/systemd/system/rtl_tcp.service << 'EOF'
+[Unit]
+Description=RTL-SDR TCP Server
+After=network.target
+Conflicts=radiosonde.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/rtl_tcp -a 0.0.0.0 -p 8091 -d 1 -s 2048000 -b 30
+User=sdruser
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# ADS-B RTL-SDR service (device index 0)
+sudo tee /etc/systemd/system/rtl_tcp_adsb.service << 'EOF'
+[Unit]
+Description=RTL-SDR ADSB TCP Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/rtl_tcp -a 0.0.0.0 -p 8092 -d 0 -s 2048000 -b 30
+User=sdruser
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload</code></pre>
+    <div class="alert tip">
+      <strong>SERVICE CONFLICT LOGIC</strong>
+      rtl_tcp and radiosonde.service both use the RTL-SDR V4. The Conflicts= directive ensures they never run simultaneously. Use OWon.sh / OWoff.sh scripts to switch modes.
+    </div>
+
+    <h3>10 — Radiosonde auto_rx Installation</h3>
+    <pre><code>cd ~
+git clone https://github.com/projecthorus/radiosonde_auto_rx
+cd radiosonde_auto_rx
+
+# Create Python virtualenv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
+
+# Create systemd service
+sudo tee /etc/systemd/system/radiosonde.service << 'EOF'
+[Unit]
+Description=Radiosonde Auto RX
+After=network.target
+Conflicts=rtl_tcp.service
+
+[Service]
+Type=simple
+User=sdruser
+WorkingDirectory=/home/sdruser/radiosonde_auto_rx/auto_rx
+ExecStart=/home/sdruser/radiosonde_auto_rx/venv/bin/python3 auto_rx.py
+Restart=no
+TimeoutStopSec=10
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload</code></pre>
+
+    <h3>11 — RF Switch Script (rf_setter.py)</h3>
+    <p>Uses <span class="inline-code">gpioset</span> from libgpiod — no Python GPIO library needed. GPIO pins: gpiochip0, pins 72 and 79.</p>
+    <pre><code>cat > /home/sdruser/rf_setter.py << 'EOF'
+import sys
+import subprocess
+
+def menu():
+    print("\n=== RF SWITCH MENU ===")
+    print("1. Quadrifilar Helix 145 MHz")
+    print("2. 9:1 Unun (Random Wire HF)")
+    print("3. V-Dipole 137 MHz")
+    print("4. YouLoop (HF)")
+    print("5. OWon  (OpenWebRX mode)")
+    print("6. OWoff (SpyServer mode)")
+    print("======================")
+    return input("Select: ").strip()
+
+if len(sys.argv) < 2:
+    secim = menu()
+else:
+    secim = sys.argv[1].strip()
+
+komut = []
+rf_ismi = ""
+
+if secim in ("1", "0"):
+    komut = ["gpioset", "-t", "0", "-c", "gpiochip0", "72=0", "79=0"]
+    rf_ismi = "Quadrifilar Helix"
+elif secim == "2":
+    komut = ["gpioset", "-t", "0", "-c", "gpiochip0", "72=1", "79=0"]
+    rf_ismi = "9:1 Unun (Random Wire)"
+elif secim == "3":
+    komut = ["gpioset", "-t", "0", "-c", "gpiochip0", "72=0", "79=1"]
+    rf_ismi = "V-Dipole 137 MHz"
+elif secim == "4":
+    komut = ["gpioset", "-t", "0", "-c", "gpiochip0", "72=1", "79=1"]
+    rf_ismi = "YouLoop"
+elif secim == "5":
+    komut = ["bash", "/home/sdruser/OWon.sh"]
+    rf_ismi = "OpenWebRX mode activated"
+elif secim == "6":
+    komut = ["bash", "/home/sdruser/OWoff.sh"]
+    rf_ismi = "SpyServer mode activated"
+else:
+    print("Invalid selection!")
+    sys.exit(1)
+
+try:
+    subprocess.run(komut, check=True)
+    print(f"OK: {rf_ismi}")
+except subprocess.CalledProcessError as e:
+    print(f"Error: {e}")
+EOF</code></pre>
+    <pre><code># Install libgpiod tools (required for gpioset)
+sudo apt install gpiod</code></pre>
+
+    <h3>12 — Mode Switching Scripts (OWon / OWoff)</h3>
+    <p>Airspy HF+ can only be used by one application at a time — either OpenWebRX or SpyServer. These scripts handle the switching:</p>
+    <pre><code># OWon.sh — Switch to OpenWebRX mode
+cat > /home/sdruser/OWon.sh << 'EOF'
+#!/bin/bash
+sudo systemctl stop spyserver
+sudo systemctl start rtl_tcp
+sudo systemctl start rtl_tcp_adsb
+sudo systemctl start openwebrx
+echo "OpenWebRX activated, SpyServer stopped, RTL-TCP servers started."
+EOF
+chmod +x /home/sdruser/OWon.sh
+
+# OWoff.sh — Switch to SpyServer mode
+cat > /home/sdruser/OWoff.sh << 'EOF'
+#!/bin/bash
+sudo systemctl stop openwebrx
+sudo systemctl start rtl_tcp
+sudo systemctl start rtl_tcp_adsb
+sudo systemctl start spyserver
+echo "SpyServer activated, OpenWebRX stopped, RTL-TCP servers started."
+EOF
+chmod +x /home/sdruser/OWoff.sh</code></pre>
+    <div class="alert tip">
+      <strong>SSH BUTTON INTEGRATION</strong>
+      Configure SSH Button on Android with these commands for one-tap switching:
+      python3 /home/sdruser/rf_setter.py 1  → Quadrifilar Helix
+      python3 /home/sdruser/rf_setter.py 5  → OpenWebRX mode
+      python3 /home/sdruser/rf_setter.py 6  → SpyServer mode
+    </div>
+  </section>
+
+  <!-- 10. CHECKLIST -->
+  <section id="checklist">
+    <div class="section-header">
+      <span class="section-num">10</span>
+      <h2>Quick Setup Checklist</h2>
+    </div>
+    <ul class="checklist">
+      <li>Flash Armbian 13 (Trixie) to SD/eMMC</li>
+      <li class="critical">Install legacy kernel: linux-image-legacy-sunxi64 ← MOST CRITICAL</li>
+      <li>Blacklist DVB/RTL-SDR conflicting kernel modules</li>
+      <li>Mask aw859a-wifi and aw859a-bluetooth services</li>
+      <li>Blacklist sprdwl_ng, uwe5622_bsp_sdio, panfrost</li>
+      <li class="critical">Add usbcore.autosuspend=-1 to armbianEnv.txt ← CRITICAL</li>
+      <li>Set CPU governor to schedutil, enable cpufrequtils</li>
+      <li>Disable exim4 and mask networkd-wait-online</li>
+      <li>Install RTL-SDR drivers from RTL-SDR Blog repo (not Debian)</li>
+      <li>Install SoapySDR + Airspy HF+ support module</li>
+      <li class="critical">Fix and lock libairspyhfSupport.so with chattr +i ← CRITICAL</li>
+      <li>Deploy SpyServer binary, configure port 5432</li>
+      <li>Wire HMC241 RF switch: CTRL_A/B to GPIO, power from 3.3V</li>
+      <li>Configure rtl_tcp on ports 1234 and 1235</li>
+      <li>Install OpenWebRX+ and Radiosonde auto_rx</li>
+      <li>Set up SSH Button on Android for antenna switching</li>
+      <li>Test all clients: SDR++Brown, SDRAngel, Samsung Browser</li>
+    </ul>
+  </section>
+
+  <!-- 10. CLAUDE -->
+  <section id="claude">
+    <div class="section-header">
+      <span class="section-num">11</span>
+      <h2>Developed with Claude AI</h2>
+    </div>
+    <p>This entire SDR server setup — from diagnosing kernel crashes to fixing the SoapySDR library conflict, optimizing system services, and writing this guide — was developed collaboratively with <strong style="color:var(--accent3)">Claude</strong>, the AI assistant by <strong>Anthropic</strong>.</p>
+
+    <div class="claude-card">
+      <p style="color:var(--text2); font-size:0.9rem">Over multiple sessions, Claude helped:</p>
+      <ul style="list-style:none; margin-top:0.75rem; display:grid; gap:0.4rem">
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Identify the legacy vs current kernel issue after 1 year of failed attempts</li>
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Analyze system logs in real time and fix every warning and error</li>
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Discover and resolve the SoapySDR / SpyServer library conflict</li>
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Optimize CPU governor, USB power management, and services</li>
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Research and verify the HMC241 RF switch GPIO wiring</li>
+        <li style="font-size:0.875rem; color:var(--text2)">◆ Write and format this complete documentation</li>
+      </ul>
+      <div class="claude-quote">
+        "I spent a year fighting this board alone. With Claude, we solved everything in a few sessions — logs, kernel choice, library conflicts, GPIO wiring, the whole setup."
+      </div>
+      <p style="font-size:0.875rem; color:var(--text2)">Claude is available at <a href="https://claude.ai" target="_blank" style="color:var(--accent3); font-weight:700">claude.ai</a> — highly capable for technical problem solving, embedded Linux, RF engineering, and system administration. If you are building an SDR server or debugging embedded Linux, Claude can save you days of work.</p>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section>
+    <div class="section-header">
+      <span class="section-num">12</span>
+      <h2>Summary</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Uptime</td><td>3+ days continuous — zero crashes</td></tr>
+          <tr><td>SDR receivers</td><td>3 simultaneous (RTL-SDR Blog V4, ADS-B, Airspy HF+)</td></tr>
+          <tr><td>Switchable antennas</td><td>4 via HMC241 GaAs SP4T RF switch</td></tr>
+          <tr><td>Protocols</td><td>SpyServer :5432, rtl_tcp :1234/:1235, OpenWebRX+ web, Radiosonde web</td></tr>
+          <tr><td>Android clients</td><td>SDR++Brown, SDRAngel, Samsung Browser, SSH Button</td></tr>
+          <tr><td>Desktop PC needed?</td><td style="color:var(--green); font-weight:700">No — full Android operation</td></tr>
+          <tr><td>CPU temperature</td><td>~45-55°C with schedutil governor</td></tr>
+          <tr><td>Power</td><td>5V/3A — official Raspberry Pi adapter</td></tr>
+          <tr><td>Developed with</td><td>Claude AI — claude.ai by Anthropic</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert tip">
+      <strong>SHARE THIS</strong>
+      It took a year to figure this out. Post it on forum.armbian.com and r/RTLSDR — save others the trouble.
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Orange Pi Zero 3 — Complete SDR IP Server Build Guide</p>
+  <p style="margin-top:0.5rem">Armbian 13 Trixie + Legacy Kernel 6.6.75-sunxi64 • May 2026</p>
+  <p style="margin-top:0.5rem">Developed with <a href="https://claude.ai" target="_blank">Claude AI</a> by Anthropic</p>
+</footer>
+
+</body>
+</html>
